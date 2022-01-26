@@ -1,4 +1,4 @@
-from da import DeferredAcceptance
+from .da import DeferredAcceptance
 import numpy as np
 
 
@@ -37,7 +37,7 @@ class DeterministicDropoutDA(DeferredAcceptance):
 
     def _update_next_round_students(self, accepted, next_rank, next_students, ordered_priority_index, sch,
                                     sch_applicants):
-        rejected = sch_applicants[ordered_priority_index[self.cutoff_index[sch]:]]
+        rejected = sch_applicants[ordered_priority_index[self.cutoff_index:]]
         next_rank[rejected] += 1
         next_students = next_students[~np.isin(next_students, accepted)]
         next_students = np.append(next_students, rejected[~np.isin(rejected, next_students)])
