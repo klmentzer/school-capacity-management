@@ -41,7 +41,7 @@ def test_compute_cdf_inflate_sep():
 def test_simulate_multi_school_costs():
     n = 7
     true_caps = np.full(n, 40)
-    inf_caps = np.array([46, 49, 51, 48, 43, 49, 46])  # target diff: [1, 0, -3, -1, 3, -1, 0]
+    inf_caps = np.array([48, 49, 44, 46, 50, 47, 46])  # target diff: [1, 0, -3, -1, 3, -1, 0]
     co = cu = 1
     iters = 1
     prob = 0.15

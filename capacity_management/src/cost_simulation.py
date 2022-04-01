@@ -172,7 +172,7 @@ def simulate_multi_school_costs(true_caps, inf_caps, co, cu, iters, prob):
     costs = np.zeros((n, 2), dtype=float)
 
     yld = np.random.binomial(inf_caps, 1-prob, size=(iters, n)).T
-    diff = np.tile(true_caps, (iters, 1)).T - yld
+    diff = yld - np.tile(true_caps, (iters, 1)).T
 
     underfill_so_far = np.zeros(iters)
     for k in range(n):
@@ -185,3 +185,23 @@ def simulate_multi_school_costs(true_caps, inf_caps, co, cu, iters, prob):
 
     costs = costs / iters
     return costs
+
+
+def heuristic_set_capacity_chain(true_caps, co, cu, p):
+    running_true_cap = 0
+    running_inf_cap = 0
+    inf_caps = []
+    for q in true_caps:
+        running_true_cap += q
+        qhat = heuristic_set_capacity(running_true_cap, co, cu, p) - running_inf_cap
+        running_inf_cap += qhat
+        inf_caps.append(qhat)
+    return np.array(inf_caps)
+
+
+def heuristic_set_capacity_independent(true_caps, co, cu, p):
+    inf_caps = []
+    for q in true_caps:
+        qhat = heuristic_set_capacity(q, co, cu, p)
+        inf_caps.append(qhat)
+    return np.array(inf_caps)
