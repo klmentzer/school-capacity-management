@@ -83,8 +83,8 @@ def optimize_2sch(
     int_length2 = int(true_cap2 * prob / (1 - prob))
 
     # values we try for inflated capacities
-    values1 = np.arange(true_cap1, true_cap1 + int_length1)
-    values2 = np.arange(true_cap2, true_cap2 + int_length2)
+    values1 = np.arange(true_cap1, true_cap1 + int_length1 + 1)
+    values2 = np.arange(true_cap2, true_cap2 + int_length2 + 1)
     avg_costs = np.zeros(shape=(int_length1, int_length2))
 
     for qhat1 in values1:
@@ -150,3 +150,38 @@ def compute_cdf_inflate_sep(
 
     # compute CDF at the sum of true capacities
     return binom.cdf(cap1 + cap2, qhat1 + qhat2, 1 - prob)
+
+
+def simulate_multi_school_costs(true_caps, inf_caps, co, cu, iters, prob):
+    """
+    Function that estimates the true total costs corresponding to each of the
+    n schools for some decisions on the inflated capacities. Returns the result
+    as an n x 2 matrix, with the overage and underage cost corresponding to
+    each school as its rows.
+
+    :true_caps: true capacities of each school
+    :inf_caps: inflated capacities at of each school
+    :co: per unit cost of overage
+    :cu: per unit cost of underage
+    :iters: number of iterations
+    :prob: probability of dropout
+
+    """
+
+    n = len(true_caps)
+    costs = np.zeros((n, 2), dtype=float)
+
+    yld = np.random.binomial(inf_caps, 1-prob, size=(iters, n)).T
+    diff = np.tile(true_caps, (iters, 1)).T - yld
+
+    underfill_so_far = np.zeros(iters)
+    for k in range(n):
+        underfilled_mask = np.where(diff[k, :] < underfill_so_far, 1, 0)
+        overfilled_mask = np.where(diff[k, :] > underfill_so_far, 1, 0)
+        costs[k, 0] += co*np.sum(overfilled_mask*(diff[k, :] - underfill_so_far))
+        costs[k, 1] += cu*np.sum(underfilled_mask*((-1) * diff[k, :] + underfill_so_far))
+        remaining_underfill = underfill_so_far - overfilled_mask*diff[k, :] + underfilled_mask * (-1) * diff[k, :]
+        underfill_so_far = np.where(remaining_underfill > 0, remaining_underfill, 0)
+
+    costs = costs / iters
+    return costs
