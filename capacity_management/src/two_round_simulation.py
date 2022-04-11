@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 
@@ -19,7 +19,7 @@ def simulate_dropout(assignment: dict, p: float) -> Tuple[dict, list]:
         leaving = np.array(np.random.binomial(size=len(students), n=1, p=p), dtype=bool)
         after_dropout[school] = students[~leaving]
         leaving_list = np.append(leaving_list, students[leaving])
-    return after_dropout, leaving_list
+    return after_dropout, [int(i) for i in leaving_list]
 
 
 def generate_rnd2_preferences(
@@ -69,8 +69,8 @@ def generate_rnd2_priorities(
 
 
 def run_2_round_assignment(
-    preferences: np.ndarray, priorities: np.ndarray, capacities: np.ndarray, p: float
-) -> dict:
+    preferences: np.ndarray, priorities: np.ndarray, capacities: np.ndarray, p: float, return_r1_assignment: bool = False
+) -> Union[dict, Tuple[dict, dict]]:
     """
     Run 2 rounds of assignment, with independent dropout between rounds.
 
@@ -101,4 +101,6 @@ def run_2_round_assignment(
     rnd2_assignment = da2.da()
     del rnd2_assignment[num_schools]
 
+    if return_r1_assignment:
+        return rnd1_assignment, rnd2_assignment
     return rnd2_assignment
