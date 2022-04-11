@@ -12,6 +12,7 @@ def test_calc_mnl_coefficients():
     )
     assert np.isclose(actual, expected).all()
 
+
 def test_validate_order_condition():
     mcs = MNLCostSimulator(
         10, 1, 1, 0.15, np.array([44, 44]), "chain", mus=np.array([5, 1])

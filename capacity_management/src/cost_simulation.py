@@ -155,19 +155,16 @@ class CostSimulator:
         diff = yld - np.tile(self.true_caps, (self.iters, 1)).T
 
         underfill_so_far = np.zeros(self.iters)
-        moving_up_total = np.zeros(self.iters)
         for k in range(n):
             underfilled_mask = np.where(diff[k, :] < underfill_so_far, 1, 0)
             overfilled_mask = np.where(diff[k, :] > underfill_so_far, 1, 0)
             costs[k, 0] += self.co * np.sum(overfilled_mask * (diff[k, :] - underfill_so_far))
             costs[k, 1] += self.cu * np.sum(underfilled_mask * ((-1) * diff[k, :] + underfill_so_far))
             remaining_underfill = underfill_so_far - overfilled_mask * diff[k, :] + underfilled_mask * (-1) * diff[k, :]
-            moving_up_total += overfilled_mask * np.minimum(diff[k, :], underfill_so_far)
             underfill_so_far = np.where(remaining_underfill > 0, remaining_underfill, 0)
 
         self.costs = costs / self.iters
         self.underfill = underfill_so_far
-        self.movers = moving_up_total
 
     def heuristic_set_capacity_chain(self):
         running_true_cap = 0
@@ -193,10 +190,9 @@ class CostSimulator:
         metrics["school_costs"] = np.sum(self.costs, axis=1)
         metrics["school_overage_costs"] = self.costs[:, 0]
         metrics["school_underage_costs"] = self.costs[:, 1]
-        metrics["avg_underfill"] = np.mean(self.underfill)
+        metrics["avg_underfill/movers"] = np.mean(self.underfill)
         metrics["raw_inflation"] = inf_caps - self.true_caps
         metrics["pct_inflation"] = metrics["raw_inflation"] / self.true_caps
-        metrics["avg_movers"] = np.mean(self.movers)
         return metrics
 
     def simulate(self):
