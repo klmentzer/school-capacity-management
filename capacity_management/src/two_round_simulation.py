@@ -69,7 +69,7 @@ def generate_rnd2_priorities(
 
 
 def run_2_round_assignment(
-    preferences: np.ndarray, priorities: np.ndarray, capacities: np.ndarray, p: float, return_r1_assignment: bool = False
+    preferences: np.ndarray, priorities: np.ndarray, r1_capacities: np.ndarray, p: float, r2_capacities: np.ndarray = None, return_r1_assignment: bool = False
 ) -> Union[dict, Tuple[dict, dict]]:
     """
     Run 2 rounds of assignment, with independent dropout between rounds.
@@ -78,13 +78,15 @@ def run_2_round_assignment(
         their preference list. The most preferred school is at index 0.
     :param priorities: a (num students) x (num schools) array where school_priorities[i,j] contains student
         i's priority at school j. Higher values indicate more highly prioritized.
-    :param capacities: an array of length (num schools) containing the capacity of each school.
+    :param r1_capacities: an array of length (num schools) containing the capacity of each school.
     :param p: probability of a student dropping out
     :return: a dictionary mapping a school to a list of students assigned after round 2
     """
+    if r2_capacities is None:
+        r2_capacities = r1_capacities
     num_students, num_schools = preferences.shape
 
-    da = DeferredAcceptance(preferences, priorities, capacities)
+    da = DeferredAcceptance(preferences, priorities, r1_capacities)
     rnd1_assignment = da.da()
 
     after_dropout, leaving = simulate_dropout(rnd1_assignment, p)
@@ -93,10 +95,14 @@ def run_2_round_assignment(
         preferences, leaving, num_schools, num_students
     )
     rnd2_priorities = generate_rnd2_priorities(priorities, after_dropout, num_students)
+    num_assigned_after_dropout = np.zeros(num_schools)
+    for k, v in after_dropout.items():
+        num_assigned_after_dropout[k] = len(v)
+    r2_functional_capacities = np.max(num_assigned_after_dropout, r2_capacities)
     da2 = DeferredAcceptance(
         rnd2_preferences,
         rnd2_priorities,
-        np.append(capacities, np.array([num_students])),
+        np.append(r2_functional_capacities, np.array([num_students])),
     )
     rnd2_assignment = da2.da()
     del rnd2_assignment[num_schools]

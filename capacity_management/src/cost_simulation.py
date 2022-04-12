@@ -106,7 +106,7 @@ class CostSimulator:
         ratio = float(self.co) / (self.cu + self.co)
 
         best_val = values[0]
-        for qhat in values:
+        for qhat in values: # TODO: make more efficient with binary search
             if binom.cdf(total_cap, qhat, 1 - self.prob) >= ratio:
                 best_val = qhat
             else:
