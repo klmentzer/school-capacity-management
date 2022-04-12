@@ -15,11 +15,15 @@ class MNLCostSimulator(CostSimulator):
         inf_strategy: str,
         mus: np.ndarray,
     ):
-        super().__init__(co, cu, iters, prob, true_caps, inf_strategy)
-        self.mus = mus
+        super().__init__(co, cu, iters, prob, true_caps)
+        self.inf_strategy = inf_strategy
+        self.mus = mus  # assume sorted in non-increasing order
         self.num_schools = len(mus)
         self.num_students = int(sum(true_caps)/(1-prob))
         self.mnl = MNL(mus, self.num_students)  # TODO: determine if this is the correct number of students
+        self.mnl_coeff = self.calc_mnl_coefficients()
+        if self.inf_strategy == 'mnl':
+            self.validate_order_condition()
 
     def calc_mnl_coefficients(self) -> np.ndarray:
         """
@@ -52,5 +56,37 @@ class MNLCostSimulator(CostSimulator):
             r1_cutoffs[sch] = np.min(priorities[students, sch])
             r2_cutoffs[sch] = np.min(priorities[r2[sch], sch])
         order = np.argsort(self.mus)
-        assert np.equal(order, np.argsort(r1_cutoffs)).all()
-        assert np.greater(r2_cutoffs[:-1], r1_cutoffs[1:]).all()
+        if not np.equal(order, np.argsort(r1_cutoffs)).all() or not np.greater(r2_cutoffs[:-1], r1_cutoffs[1:]).all():
+            raise ValueError("The provided mus do not satisfy the order condition.")
+
+    def heuristic_set_capacity_mnl(self):
+        inf_caps = np.zeros(len(self.true_caps))
+        for i, q in enumerate(self.true_caps):
+            weighted_true_caps = sum(np.multiply(self.mnl_coeff[:i+1, i], self.true_caps[:i+1]))
+            weighted_inf_caps = np.sum(self.mnl_coeff[:i, i]*inf_caps[:i])
+            qhat = self.heuristic_set_capacity(weighted_true_caps) - weighted_inf_caps
+            inf_caps[i] = qhat
+        return np.array(inf_caps)
+
+    def simulate(self):
+        capacity_func = getattr(self, f"heuristic_set_capacity_{self.inf_strategy}")
+        inf_caps = capacity_func()
+        preferences = self.mnl.sample_preference_ordering()
+        priorities = np.random.uniform(size=(self.num_students, self.num_schools))
+        r1, r2 = run_2_round_assignment(preferences, priorities, inf_caps, self.prob, r2_capacities=self.true_caps, return_r1_assignment=True)
+
+        num_assigned = np.zeros(self.num_schools)
+        for k, v in r2.items():
+            num_assigned[k] = len(v)
+
+        overfill = np.where(num_assigned > self.true_caps, num_assigned-self.true_caps, 0)
+        underfill = np.where(num_assigned < self.true_caps, self.true_caps - num_assigned, 0)
+
+        # number of students who move up to each school (assigned in round 2 but not in round 1)
+        self.num_movers = np.zeros(self.num_schools)
+        for k, v in r2.items():
+            self.num_movers[k] = len(set(v)-set(r1[k]))
+
+        self.costs = np.append(self.co*overfill, self.cu*underfill)
+
+

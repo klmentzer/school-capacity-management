@@ -83,10 +83,10 @@ def run_2_round_assignment(
     :return: a dictionary mapping a school to a list of students assigned after round 2
     """
     if r2_capacities is None:
-        r2_capacities = r1_capacities
+        r2_capacities = r1_capacities.astype(int)
     num_students, num_schools = preferences.shape
 
-    da = DeferredAcceptance(preferences, priorities, r1_capacities)
+    da = DeferredAcceptance(preferences, priorities, r1_capacities.astype(int))
     rnd1_assignment = da.da()
 
     after_dropout, leaving = simulate_dropout(rnd1_assignment, p)
@@ -95,14 +95,14 @@ def run_2_round_assignment(
         preferences, leaving, num_schools, num_students
     )
     rnd2_priorities = generate_rnd2_priorities(priorities, after_dropout, num_students)
-    num_assigned_after_dropout = np.zeros(num_schools)
+    num_assigned_after_dropout = np.zeros(num_schools, dtype=int)
     for k, v in after_dropout.items():
         num_assigned_after_dropout[k] = len(v)
-    r2_functional_capacities = np.max(num_assigned_after_dropout, r2_capacities)
+    r2_functional_capacities = np.maximum(num_assigned_after_dropout, r2_capacities)
     da2 = DeferredAcceptance(
         rnd2_preferences,
         rnd2_priorities,
-        np.append(r2_functional_capacities, np.array([num_students])),
+        np.append(r2_functional_capacities, np.array([num_students])).astype(int),
     )
     rnd2_assignment = da2.da()
     del rnd2_assignment[num_schools]
