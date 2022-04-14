@@ -68,8 +68,9 @@ class MNLCostSimulator(CostSimulator):
             inf_caps[i] = qhat
         return np.array(inf_caps)
 
-    def simulate(self):
-        capacity_func = getattr(self, f"heuristic_set_capacity_{self.inf_strategy}")
+    def simulate(self, inf_strategy=None):
+        inf_strategy = inf_strategy or self.inf_strategy
+        capacity_func = getattr(self, f"heuristic_set_capacity_{inf_strategy}")
         inf_caps = capacity_func()
         preferences = self.mnl.sample_preference_ordering()
         priorities = np.random.uniform(size=(self.num_students, self.num_schools))
@@ -80,13 +81,23 @@ class MNLCostSimulator(CostSimulator):
             num_assigned[k] = len(v)
 
         overfill = np.where(num_assigned > self.true_caps, num_assigned-self.true_caps, 0)
-        underfill = np.where(num_assigned < self.true_caps, self.true_caps - num_assigned, 0)
+        self.underfill = np.where(num_assigned < self.true_caps, self.true_caps - num_assigned, 0)
 
         # number of students who move up to each school (assigned in round 2 but not in round 1)
         self.num_movers = np.zeros(self.num_schools)
         for k, v in r2.items():
             self.num_movers[k] = len(set(v)-set(r1[k]))
 
-        self.costs = np.append(self.co*overfill, self.cu*underfill)
+        self.costs = np.append(self.co*overfill, self.cu*self.underfill)
+        return self.evaluation_metrics(inf_caps)
 
+    def chaining_inflation_difference(self) -> float:
+        """
+        Calculate the percentage increase in inflation percentage (not total true capacity)
+
+        :return: float representing the (chained % inflation)/(independent % inflation)
+        """
+        independent = self.simulate(inf_strategy='independent')
+        chained = self.simulate(inf_strategy='mnl')
+        return chained['pct_inflation'] / independent['pct_inflation']
 

@@ -195,10 +195,19 @@ class CostSimulator:
         metrics["pct_inflation"] = metrics["raw_inflation"] / self.true_caps
         return metrics
 
-    def simulate(self):
-        capacity_func = getattr(self, f"heuristic_set_capacity_{self.inf_strategy}")
+    def simulate(self, inf_strategy=None):
+        inf_strategy = inf_strategy or self.inf_strategy
+        capacity_func = getattr(self, f"heuristic_set_capacity_{inf_strategy}")
         inf_caps = capacity_func()
         self.simulate_multi_school_costs(inf_caps)
         return self.evaluation_metrics(inf_caps)
 
+    def chaining_inflation_difference(self) -> float:
+        """
+        Calculate the percentage increase in inflation percentage (not total true capacity)
 
+        :return: float representing the (chained % inflation)/(independent % inflation)
+        """
+        independent = self.simulate(inf_strategy='independent')
+        chained = self.simulate(inf_strategy='chain')
+        return chained['pct_inflation'] / independent['pct_inflation']
