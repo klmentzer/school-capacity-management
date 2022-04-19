@@ -60,36 +60,48 @@ class MNLCostSimulator(CostSimulator):
             raise ValueError("The provided mus do not satisfy the order condition.")
 
     def heuristic_set_capacity_mnl(self):
-        inf_caps = np.zeros(len(self.true_caps))
+        inf_caps = np.zeros(len(self.true_caps), dtype=int)
         for i, q in enumerate(self.true_caps):
             weighted_true_caps = sum(np.multiply(self.mnl_coeff[:i+1, i], self.true_caps[:i+1]))
             weighted_inf_caps = np.sum(self.mnl_coeff[:i, i]*inf_caps[:i])
             qhat = self.heuristic_set_capacity(weighted_true_caps) - weighted_inf_caps
-            inf_caps[i] = qhat
+            inf_caps[i] = int(qhat)
         return np.array(inf_caps)
 
     def simulate(self, inf_strategy=None):
         inf_strategy = inf_strategy or self.inf_strategy
         capacity_func = getattr(self, f"heuristic_set_capacity_{inf_strategy}")
         inf_caps = capacity_func()
-        preferences = self.mnl.sample_preference_ordering()
-        priorities = np.random.uniform(size=(self.num_students, self.num_schools))
-        r1, r2 = run_2_round_assignment(preferences, priorities, inf_caps, self.prob, r2_capacities=self.true_caps, return_r1_assignment=True)
 
-        num_assigned = np.zeros(self.num_schools)
-        for k, v in r2.items():
-            num_assigned[k] = len(v)
-
-        overfill = np.where(num_assigned > self.true_caps, num_assigned-self.true_caps, 0)
-        self.underfill = np.where(num_assigned < self.true_caps, self.true_caps - num_assigned, 0)
-
-        # number of students who move up to each school (assigned in round 2 but not in round 1)
+        self.underfill = np.zeros(self.num_schools)
+        self.overfill = np.zeros(self.num_schools)
         self.num_movers = np.zeros(self.num_schools)
-        for k, v in r2.items():
-            self.num_movers[k] = len(set(v)-set(r1[k]))
+        self.num_dropout = None  # np.zeros(self.num_schools)
+        for t in range(self.iters):
+            preferences = self.mnl.sample_preference_ordering()
+            priorities = np.tile(np.random.uniform(size=self.num_students), (self.num_schools, 1)).T
+            r1, r2 = run_2_round_assignment(preferences, priorities, inf_caps, self.prob, r2_capacities=self.true_caps, return_r1_assignment=True)
 
-        self.costs = np.append(self.co*overfill, self.cu*self.underfill)
+            num_assigned = np.zeros(self.num_schools)
+            for k, v in r2.items():
+                num_assigned[k] = len(v)
+
+            self.overfill += np.where(num_assigned > self.true_caps, num_assigned-self.true_caps, 0)/ self.iters
+            self.underfill += np.where(num_assigned < self.true_caps, self.true_caps - num_assigned, 0)/ self.iters
+
+            # number of students who move up to each school (assigned in round 2 but not in round 1)
+            for k, v in r2.items():
+                self.num_movers[k] += len(set(v)-set(r1[k]))/self.iters
+                # self.num_dropout[k] += len(set(r1[k])-set(v))/self.iters
+
+        self.costs = np.vstack([self.co*self.overfill, self.cu*self.underfill]).T
         return self.evaluation_metrics(inf_caps)
+
+    def evaluation_metrics(self, inf_caps):
+        metrics = super().evaluation_metrics(inf_caps)
+        metrics['movers'] = self.num_movers
+        metrics['dropout'] = self.num_dropout
+        return metrics
 
     def chaining_inflation_difference(self) -> float:
         """
