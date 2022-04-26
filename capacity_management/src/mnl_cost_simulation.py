@@ -22,8 +22,8 @@ class MNLCostSimulator(CostSimulator):
         self.num_students = int(sum(true_caps)/(1-prob))
         self.mnl = MNL(mus, self.num_students)  # TODO: determine if this is the correct number of students
         self.mnl_coeff = self.calc_mnl_coefficients()
-        if self.inf_strategy == 'mnl':
-            self.validate_order_condition()
+        # if self.inf_strategy == 'mnl':
+        #     self.validate_order_condition()
 
     def calc_mnl_coefficients(self) -> np.ndarray:
         """
@@ -94,13 +94,14 @@ class MNLCostSimulator(CostSimulator):
                 self.num_movers[k] += len(set(v)-set(r1[k]))/self.iters
                 # self.num_dropout[k] += len(set(r1[k])-set(v))/self.iters
 
-        self.costs = np.vstack([self.co*self.overfill, self.cu*self.underfill]).T
+        self.costs = np.vstack([self.co*self.overfill, self.cu*(self.underfill + self.num_movers)]).T
         return self.evaluation_metrics(inf_caps)
 
     def evaluation_metrics(self, inf_caps):
         metrics = super().evaluation_metrics(inf_caps)
         metrics['movers'] = self.num_movers
         metrics['dropout'] = self.num_dropout
+        metrics["true_underage"] = self.underfill
         return metrics
 
     def chaining_inflation_difference(self) -> float:
