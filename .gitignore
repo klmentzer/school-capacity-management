@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/.idea/school-capacity-management.iml
+/.idea/vcs.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/misc.xml
+/notebooks/copeland_school_popularity_scoring.ipynb
+/.idea/.gitignore
